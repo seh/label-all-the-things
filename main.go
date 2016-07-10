@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
@@ -37,6 +39,9 @@ func doCreateCommand(c *cli.Context) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: getGitHubToken(c)})
 	tc := oauth2.NewClient(oauth2.NoContext, ts)
 	client := github.NewClient(tc)
+	if err := configureClient(c, client); err != nil {
+		log.Fatal(err)
+	}
 
 	for _, repoSpec := range c.Args() {
 		repo := strings.SplitN(repoSpec, "/", 2)
@@ -47,6 +52,17 @@ func doCreateCommand(c *cli.Context) {
 			}
 		}
 	}
+}
+
+func configureClient(c *cli.Context, client *github.Client) error {
+	if v := c.GlobalString("base-url"); v != "" {
+		u, err := url.Parse(v)
+		if err != nil {
+			return fmt.Errorf(`invalid "base-url" value: %v`, err)
+		}
+		client.BaseURL = u
+	}
+	return nil
 }
 
 func getGitHubToken(c *cli.Context) string {
@@ -81,6 +97,10 @@ func main() {
 		cli.StringFlag{
 			Name:  "token-file",
 			Usage: "GitHub API token file",
+		},
+		cli.StringFlag{
+			Name:  "base-url",
+			Usage: "Base URL for GitHub API requests (including trailing slash)",
 		},
 	}
 
